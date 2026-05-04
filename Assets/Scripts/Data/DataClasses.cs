@@ -13,8 +13,10 @@ using UnityEngine;
 public class CardData
 {
     public int ID;
+    public int OwnerID;
     public string Name;
-    public int[] LevelStats;
+    public string Effects;
+    public string Description;
 }
 
 [CreateAssetMenu(fileName = "CardTable", menuName = "Data/CardTable")]
@@ -30,7 +32,10 @@ public class MewberData
 {
     public int ID;
     public string Name;
-    public int[] LevelStats;
+    public int Health;
+    public int Attack;
+    public int CardLimit;                       // 뮤버 하나가 들고 있을 수 있는 카드 한도
+    public Dictionary<int, int> StartBundle;    // 기본 지급 카드 (ex : 10001:3;10002:1  →  10001번 카드 3장, 10002번 카드 1장)
 }
 
 [CreateAssetMenu(fileName = "MewberTable", menuName = "Data/MewberTable")]

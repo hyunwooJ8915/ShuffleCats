@@ -7,7 +7,7 @@ using System.Collections.Generic;
 /// 2. CurrentStep을 통해 난수 소모량을 기록하여, 강제 종료 후 재접속 시에도 동일한 난수 결과를 보장합니다.
 /// 3. 리스트 확장 메서드(Shuffle)를 포함하여 덱 섞기 등 전투 로직의 공정성을 관리합니다.
 /// </summary>
-public static class RandomManager
+public static class RandomUtil
 {
     private static Random _rng;
 
@@ -33,13 +33,23 @@ public static class RandomManager
     }
 
     /// <summary>
-    /// Random.Range 대신 사용할 시드 버전 난수 생성기
+    /// Random.Range 대신 사용할 시드 버전 난수 생성기 (int 오버로딩)
     /// </summary>
     public static int Range(int min, int max)
     {
         CurrentStep++;
         return _rng.Next(min, max);
     }
+
+    /// <summary>
+    /// Random.Range 대신 사용할 시드 버전 난수 생성기 (float 오버로딩)
+    /// </summary>
+    public static float Range(float min, float max)
+    {
+        CurrentStep++;
+        return (float)(_rng.NextDouble() * (max - min) + min);
+    }
+
 
 
     /// <summary>
@@ -52,7 +62,7 @@ public static class RandomManager
         {
             n--;
             // RandomManager.Range를 사용하여 시드에 종속된 난수를 발생시킴
-            int k = RandomManager.Range(0, n + 1);
+            int k = RandomUtil.Range(0, n + 1);
             T value = list[k];
             list[k] = list[n];
             list[n] = value;

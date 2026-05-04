@@ -9,11 +9,9 @@ using UnityEngine;
 /// 2. XOR 암호화를 통해 데이터 조작을 방지합니다.
 /// 3. SO 시스템의 ID를 기반으로 저장하여 DataManager와 연동됩니다.
 /// </summary>
-public class SaveManager : MonoBehaviour
+public class SaveManager : Singleton<SaveManager>
 {
-    public static SaveManager Instance { get; private set; }
-
-    #region PublicVariables
+    #region Properties
     public EstateSaveData EstateData { get; private set; }
     public BattleSaveData BattleData { get; private set; }
     #endregion
@@ -25,17 +23,13 @@ public class SaveManager : MonoBehaviour
     #endregion
 
     #region UnityMeythods
-    private void Awake()
+    protected override void Awake()
     {
-        if (Instance == null)
-        {
-            Instance = this;
-            DontDestroyOnLoad(gameObject);
-            _estateSavePath = Path.Combine(Application.persistentDataPath, "estate_data.dat");
-            _battleSavePath = Path.Combine(Application.persistentDataPath, "battle_temp.dat");
-            LoadAll();
-        }
-        else Destroy(gameObject);
+        base.Awake();
+
+        _estateSavePath = Path.Combine(Application.persistentDataPath, "estate_data.dat");
+        _battleSavePath = Path.Combine(Application.persistentDataPath, "battle_temp.dat");
+        LoadAll();
     }
     #endregion
 

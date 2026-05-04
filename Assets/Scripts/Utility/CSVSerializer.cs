@@ -28,7 +28,8 @@ public static class CSVSerializer
         string[] headers = lines[0].Split(',');
 
         // 2. 데이터 줄부터 반복
-        for (int i = 1; i < lines.Length; i++)
+        // (첫줄은 변수명, 두번 째 줄은 데이터 설명)
+        for (int i = 2; i < lines.Length; i++)
         {
             string[] columns = lines[i].Split(',');
             T obj = new T();

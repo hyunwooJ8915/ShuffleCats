@@ -1,7 +1,7 @@
 ﻿using System.Collections;
 using UnityEngine;
 
-public class LoadingSceneManager : MonoBehaviour
+public class LoadingSceneController : MonoBehaviour
 {    
     void Start()
     {
