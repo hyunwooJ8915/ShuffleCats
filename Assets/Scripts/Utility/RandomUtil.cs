@@ -55,7 +55,7 @@ public static class RandomUtil
     /// <summary>
     /// 리스트 자체에서 바로 호출 가능한 확장 매서드 셔플
     /// </summary>
-    public static void ShuffleDeck<T>(this List<T> list)
+    public static void Shuffle<T>(this List<T> list)
     {
         int n = list.Count;
         while (n > 1)

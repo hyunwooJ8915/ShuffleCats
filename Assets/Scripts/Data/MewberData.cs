@@ -8,25 +8,6 @@ using UnityEngine;
 /// 3. 주의: 변수명은 구글 시트의 헤더(첫 줄) 이름과 반드시 일치해야 자동 매칭됩니다.
 /// </summary>
 
-#region CardData
-[System.Serializable]
-public class CardData
-{
-    public int ID;
-    public int OwnerID;
-    public string Name;
-    public string Effects;
-    public string Description;
-}
-
-[CreateAssetMenu(fileName = "CardTable", menuName = "Data/CardTable")]
-public class CardTable : ScriptableObject
-{
-    public List<CardData> cards = new List<CardData>();
-}
-#endregion
-
-#region MewberData
 [System.Serializable]
 public class MewberData
 {
@@ -43,4 +24,3 @@ public class MewberTable : ScriptableObject
 {
     public List<MewberData> mewbers = new List<MewberData>();
 }
-#endregion

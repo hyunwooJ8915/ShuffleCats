@@ -39,6 +39,13 @@ public class GameManager : Singleton<GameManager>
 
     private void CheckUserStatus()
     {
+        // SaveManager나 데이터 자체가 없는 경우
+        if (SaveManager.Instance == null || SaveManager.Instance.EstateData == null)
+        {
+            Log.Error("세이브 데이터를 불러올 수 없습니다!");
+            return;
+        }
+
         if (string.IsNullOrEmpty(SaveManager.Instance.EstateData.uid))
         {
             Log.Info("신규 유저 감지");
