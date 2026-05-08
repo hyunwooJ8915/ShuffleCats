@@ -17,8 +17,8 @@ public class SheetImporterEditor : Editor
     private static List<(string gid, string path, System.Type type, string fieldName)> configs 
         = new List<(string, string, System.Type, string)> 
         {
-            ("0", "Assets/Data/CardTable.asset", typeof(CardData), "cards"),
-            ("505215350", "Assets/Data/MewberTable.asset", typeof(MewberData), "mewbers")
+            ("0", "Assets/Resources/Data/CardTable.asset", typeof(CardData), "cards"),
+            ("505215350", "Assets/Resources/Data/MewberTable.asset", typeof(MewberData), "mewbers")
         };
 
     [MenuItem("Tools/Sync All Google Sheets")]

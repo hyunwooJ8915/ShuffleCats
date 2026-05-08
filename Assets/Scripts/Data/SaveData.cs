@@ -21,9 +21,11 @@ public class BattleSaveData
     public List<MewberBattleState> playerParty = new List<MewberBattleState>();         // 플레이어블 캐릭터 상태
     public List<EnemyBattleState> enemyParty = new List<EnemyBattleState>();            // 적군 캐릭터 상태
 
-    public List<int> drawPile = new List<int>();                                        // 뽑을 카드 더미
-    public List<int> handCards = new List<int>();                                       // 현재 손패
-    public List<int> discardPile = new List<int>();                                     // 버린 카드 더미
+    public List<CardInstance> drawPile = new List<CardInstance>();                      // 뽑을 카드 더미
+    public List<CardInstance> handCards = new List<CardInstance>();                     // 현재 손패
+    public List<CardInstance> discardPile = new List<CardInstance>();                   // 버린 카드 더미
+
+    public int nextInstanceID = 1;                                                      // 카드 인스턴스 식별자 발급용 카운터
 
     public List<EnemyActionState> pendingEnemyActions = new List<EnemyActionState>();   // 적군이 찜한 카드 (Behavior Tree)
 

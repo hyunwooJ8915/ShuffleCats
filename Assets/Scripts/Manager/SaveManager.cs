@@ -30,6 +30,9 @@ public class SaveManager : Singleton<SaveManager>
         _estateSavePath = Path.Combine(Application.persistentDataPath, "estate_data.dat");
         _battleSavePath = Path.Combine(Application.persistentDataPath, "battle_temp.dat");
         LoadAll();
+
+        Log.Info($"영지 데이터 저장 경로 : {_estateSavePath}");
+        Log.Info($"전투 데이터 저장 경로 : {_battleSavePath}");
     }
     #endregion
 

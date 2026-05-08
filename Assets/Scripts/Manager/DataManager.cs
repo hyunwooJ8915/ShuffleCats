@@ -25,14 +25,59 @@ public class DataManager : Singleton<DataManager>
     protected override void Awake()
     {
         base.Awake();
+        EnsureTablesLoaded();
         InitData();
     }
     #endregion
 
     #region PrivateMethods
+    /// <summary>
+    /// 인스펙터에서 SO 참조가 비어있는 경우(예: Singleton이 동적 생성된 케이스)
+    /// Resources 폴더에서 자동 로드합니다. 빌드/에디터 모두 동일하게 동작.
+    /// </summary>
+    private void EnsureTablesLoaded()
+    {
+        UnityEngine.Debug.Log($"[DataManager] EnsureTablesLoaded 시작. cardTable={(cardTable != null ? "있음" : "null")}, mewberTable={(mewberTable != null ? "있음" : "null")}");
+
+        // 진단: Resources/ 안에 어떤 CardTable/MewberTable이 있는지 전부 나열
+        var allCards = Resources.LoadAll<CardTable>("");
+        UnityEngine.Debug.Log($"[DataManager] Resources 안 CardTable 개수: {allCards.Length}");
+        foreach (var t in allCards) UnityEngine.Debug.Log($"  - {t.name} (cards: {t.cards.Count})");
+
+        var allMewbers = Resources.LoadAll<MewberTable>("");
+        UnityEngine.Debug.Log($"[DataManager] Resources 안 MewberTable 개수: {allMewbers.Length}");
+        foreach (var t in allMewbers) UnityEngine.Debug.Log($"  - {t.name} (mewbers: {t.mewbers.Count})");
+
+        if (cardTable == null)
+        {
+            cardTable = Resources.Load<CardTable>("Data/CardTable");
+            UnityEngine.Debug.Log($"[DataManager] Resources.Load(\"Data/CardTable\") 결과: {(cardTable != null ? "성공" : "null")}");
+            // 폴백: 어떤 이름이든 첫 번째 CardTable
+            if (cardTable == null && allCards.Length > 0)
+            {
+                cardTable = allCards[0];
+                UnityEngine.Debug.LogWarning($"[DataManager] 경로 기반 로드 실패 → 첫 번째 발견 CardTable({allCards[0].name})로 폴백");
+            }
+            if (cardTable == null) Log.Error("CardTable을 찾을 수 없습니다. Resources/Data/CardTable.asset 경로를 확인하세요.");
+        }
+
+        if (mewberTable == null)
+        {
+            mewberTable = Resources.Load<MewberTable>("Data/MewberTable");
+            UnityEngine.Debug.Log($"[DataManager] Resources.Load(\"Data/MewberTable\") 결과: {(mewberTable != null ? "성공" : "null")}");
+            if (mewberTable == null && allMewbers.Length > 0)
+            {
+                mewberTable = allMewbers[0];
+                UnityEngine.Debug.LogWarning($"[DataManager] 경로 기반 로드 실패 → 첫 번째 발견 MewberTable({allMewbers[0].name})로 폴백");
+            }
+            if (mewberTable == null) Log.Error("MewberTable을 찾을 수 없습니다. Resources/Data/MewberTable.asset 경로를 확인하세요.");
+        }
+    }
+
     private void InitData()
     {
         if (IsInitialized) return;
+        if (cardTable == null || mewberTable == null) return;
 
         cardDict.Clear();
         foreach (var card in cardTable.cards)

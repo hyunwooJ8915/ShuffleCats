@@ -14,6 +14,7 @@ public class TargetArrow : Singleton<TargetArrow>
 
     private List<GameObject> _dots = new List<GameObject>();
     private GameObject _head;
+    private Unit _currentTarget;
 
     protected override void Awake()
     {
@@ -33,9 +34,15 @@ public class TargetArrow : Singleton<TargetArrow>
     {
         foreach (var dot in _dots) dot.SetActive(active);
         _head.SetActive(active);
+
+        if(!active)
+        {
+            _currentTarget?.OnUntargeted();
+            _currentTarget = null;
+        }
     }
 
-    public void UpdateArrow(Vector3 startPos, Vector3 endPos)
+    public void UpdateArrow(Vector3 startPos, Vector3 endPos, Vector2 screenPos)
     {
         SetActive(true);
 
@@ -67,6 +74,34 @@ public class TargetArrow : Singleton<TargetArrow>
         _head.transform.position = endPos;
         _head.transform.localScale = Vector3.one * _dotScaleMultiplier * 1.5f;
         LookAtTarget(_head.transform, endPos + (endPos - _dots[_dotCount - 1].transform.position));
+
+        CheckUnitUnderArrow(screenPos);
+    }
+
+    private void CheckUnitUnderArrow(Vector3 screenPos)
+    {
+        Vector3 worldPos = Camera.main.ScreenToWorldPoint(screenPos);
+        Collider2D col = Physics2D.OverlapPoint(worldPos);
+        Unit unit = col?.GetComponent<Unit>();
+
+        if (unit != _currentTarget)
+        {
+            // 이전 타겟 해제
+            if (_currentTarget != null)
+            {
+                _currentTarget.OnUntargeted();
+                Debug.Log($"Target Lost: {_currentTarget.name}");
+            }
+
+            _currentTarget = unit;
+
+            // 새 타겟 강조
+            if (_currentTarget != null)
+            {
+                _currentTarget.OnTargeted();
+                Debug.Log($"Target Found: {_currentTarget.name}");
+            }
+        }
     }
 
     private void LookAtTarget(Transform tf, Vector3 target)

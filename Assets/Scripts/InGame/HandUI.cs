@@ -11,6 +11,22 @@ public class HandUI : MonoBehaviour
     [SerializeField] private float _maxRotation = 20f;
     [SerializeField] private float _maxSpacing = 150f;
 
+    [Header("Pile Anchors (선택)")]
+    [Tooltip("뽑을 카드 더미 아이콘의 RectTransform. 드로우 카드가 이 위치에서 손패로 날아옵니다.")]
+    [SerializeField] private RectTransform _drawPileAnchor;
+    [Tooltip("드로우 시작 시 카드 스케일 (작게 시작 → UpdateLayout이 1.0으로 확대)")]
+    [SerializeField] private float _drawSpawnScale = 0.6f;
+
+    [Header("Discard Animation")]
+    [Tooltip("바운스 시 위로 튕길 Y 거리(양수)")]
+    [SerializeField] private float _discardBounceHeight = 120f;
+    [Tooltip("바운스 진행 시간(초)")]
+    [SerializeField] private float _discardBounceDuration = 0.15f;
+    [Tooltip("카드 사용 시 떨어질 Y 거리(로컬 기준, 음수면 아래로 낙하)")]
+    [SerializeField] private float _discardFallDistance = -1500f;
+    [Tooltip("낙하 진행 시간(초)")]
+    [SerializeField] private float _discardDuration = 0.55f;
+
     private List<CardUI> _activeCards = new List<CardUI>();
     public bool IsTargetingMode { get; private set; }
 
@@ -18,17 +34,14 @@ public class HandUI : MonoBehaviour
     public bool IsAnyCardDragging { get; private set; }
     public RectTransform Rect => GetComponent<RectTransform>();
 
-    public void RefreshHand(List<int> handIDs)
+    public void RefreshHand(List<CardInstance> hand)
     {
         foreach (var card in _activeCards) CardPool.Instance.ReturnCard(card);
         _activeCards.Clear();
 
-        for (int i = 0; i < handIDs.Count; i++)
-        {
-            CardUI card = CardPool.Instance.GetCard(transform);
-            card.Init(handIDs[i]);
-            _activeCards.Add(card);
-        }
+        for (int i = 0; i < hand.Count; i++)
+            SpawnFromDrawPile(hand[i]);
+
         UpdateLayout();
     }
 
@@ -105,7 +118,7 @@ public class HandUI : MonoBehaviour
     public void HandleCardDrop(CardUI card, PointerEventData eventData)
     {
         IsTargetingMode = false;
-        IsAnyCardDragging = false; // 드래그 종료 기록
+        IsAnyCardDragging = false;
         if (TargetArrow.Instance != null) TargetArrow.Instance.SetActive(false);
 
         RaycastHit2D hit = Physics2D.Raycast(Camera.main.ScreenToWorldPoint(eventData.position), Vector2.zero);
@@ -123,11 +136,74 @@ public class HandUI : MonoBehaviour
 
     private void ExecuteCardEffect(CardUI card, Unit target)
     {
+        int instanceID = card.InstanceID;
         _activeCards.Remove(card);
-        card.transform.DOLocalMoveY(1200f, 0.5f).SetEase(Ease.InBack);
-        card.transform.DOScale(0, 0.4f).OnComplete(() => {
+
+        // 덱 데이터 업데이트 (버리기 + 드로우) 후 새로 뽑힌 인스턴스 수령
+        List<CardInstance> drawn = BattleManager.Instance.ExecuteCard(instanceID, null, target);
+
+        // 나머지 카드 즉시 재정렬
+        UpdateLayout();
+
+        // 카드 퇴장 연출: 위로 살짝 튕긴 뒤 화면 하단으로 낙하
+        card.transform.DOKill();
+        card.SetSortingOrder(2000);   // 떨어지는 동안 다른 카드 위로 보이도록
+        card.SetInteractable(false);  // 낙하 중인 카드 다시 못 잡도록 차단
+
+        float startY = card.transform.localPosition.y;
+        float startX = card.transform.localPosition.x;
+        float tilt = UnityEngine.Random.Range(-25f, 25f);
+        float drift = UnityEngine.Random.Range(-60f, 60f);
+        float totalDuration = _discardBounceDuration + _discardDuration;
+
+        // 회전과 가로 표류는 전체 듀레이션에 걸쳐 천천히 진행
+        card.transform.DOLocalRotate(new Vector3(0, 0, tilt), totalDuration);
+        card.transform.DOLocalMoveX(startX + drift, totalDuration).SetEase(Ease.OutQuad);
+
+        // Y축은 시퀀스: 살짝 위로 튕긴 후 → 가속하며 낙하
+        Sequence fallSeq = DOTween.Sequence();
+        fallSeq.Append(card.transform
+            .DOLocalMoveY(startY + _discardBounceHeight, _discardBounceDuration)
+            .SetEase(Ease.OutQuad));
+        fallSeq.Append(card.transform
+            .DOLocalMoveY(_discardFallDistance, _discardDuration)
+            .SetEase(Ease.InCubic));
+        fallSeq.OnComplete(() =>
+        {
             CardPool.Instance.ReturnCard(card);
+
+            // 새로 뽑힌 카드들은 뽑을 카드 더미 위치에서 솟아오르도록 배치
+            foreach (CardInstance inst in drawn) SpawnFromDrawPile(inst);
             UpdateLayout();
         });
+    }
+
+    /// <summary> 손패에 카드 한 장을 추가합니다. (외부에서 직접 추가할 때 사용) </summary>
+    public void AddCard(CardInstance instance)
+    {
+        SpawnFromDrawPile(instance);
+        UpdateLayout();
+    }
+
+    /// <summary>
+    /// 카드 한 장을 풀에서 가져와 _drawPileAnchor 위치에 배치한 뒤 _activeCards에 추가합니다.
+    /// 호출 후 UpdateLayout()이 실행되면 anchor → 손패 슬롯으로 자연스럽게 보간됩니다.
+    /// </summary>
+    private void SpawnFromDrawPile(CardInstance instance)
+    {
+        CardUI newCard = CardPool.Instance.GetCard(transform);
+        newCard.Init(instance);
+        newCard.transform.DOKill();
+
+        if (_drawPileAnchor != null)
+        {
+            // anchor의 World Position을 HandUI의 Local로 변환
+            Vector3 localFrom = transform.InverseTransformPoint(_drawPileAnchor.position);
+            newCard.transform.localPosition = localFrom;
+            newCard.transform.localRotation = Quaternion.identity;
+            newCard.transform.localScale = Vector3.one * _drawSpawnScale;
+        }
+
+        _activeCards.Add(newCard);
     }
 }

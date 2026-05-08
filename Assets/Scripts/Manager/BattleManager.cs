@@ -1,5 +1,4 @@
-﻿using System.Collections;
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using UnityEngine;
 
 
@@ -16,27 +15,39 @@ public class BattleManager : Singleton<BattleManager>
     public List<Unit> PlayerParty = new List<Unit>();
     public List<Unit> EnemyParty = new List<Unit>();
 
-    private List<int> _drawPile => SaveManager.Instance.BattleData.drawPile;
-    private List<int> _handCards => SaveManager.Instance.BattleData.handCards;
-    private List<int> _discardPile => SaveManager.Instance.BattleData.discardPile;
+    private List<CardInstance> _drawPile => SaveManager.Instance.BattleData.drawPile;
+    private List<CardInstance> _handCards => SaveManager.Instance.BattleData.handCards;
+    private List<CardInstance> _discardPile => SaveManager.Instance.BattleData.discardPile;
+
+    public IReadOnlyList<CardInstance> HandCards => _handCards;
+    public IReadOnlyList<CardInstance> DrawPile => _drawPile;
+    public IReadOnlyList<CardInstance> DiscardPile => _discardPile;
 
     private const int MaxHandCount = 10;
     private const int MinHandCount = 5;
 
     public bool IsBattleOver { get; private set; } = false;
+
+    private HandUI _handUI;
     #endregion
 
     private void Start()
     {
-        // 테스트용 
-        List<int> testHand = new List<int> { 10001, 10001, 10001, 10001, 10001};
+        _handUI = FindFirstObjectByType<HandUI>();
 
-        var handUI = FindFirstObjectByType<HandUI>();
-        if (handUI != null) handUI.RefreshHand(testHand);
+        // 테스트용: 샘플 덱으로 전투 초기화
+        List<int> testDeck = new List<int> { 10001, 10002, 10003, 10101, 10102,
+                                             10103, 10201, 10202, 10203, 10301,
+                                             10302, 10303, 10401, 10402, 10403,
+                                             10501, 10502, 10503, 10601, 10602,
+                                             10603, 10701, 10702, 10703, 10801,
+                                             10802, 10803, 10901, 10902, 10903 };
+        PrepareBattle(42, testDeck);
+        _handUI?.RefreshHand(new List<CardInstance>(_handCards));
     }
 
     #region Battle Initializer
-    public void PrpareBattle(int seed, List<int> startDeck)
+    public void PrepareBattle(int seed, List<int> startDeck)
     {
         IsBattleOver = false;
 
@@ -44,36 +55,52 @@ public class BattleManager : Singleton<BattleManager>
 
         if (_drawPile.Count == 0 && _handCards.Count == 0 && _discardPile.Count == 0)
         {
-            _drawPile.AddRange(startDeck);
+            foreach (int cardID in startDeck)
+                _drawPile.Add(NewInstance(cardID));
+
             _drawPile.Shuffle(); // RandomManager 활용 확장 메서드
             DrawCard(MinHandCount);
         }
 
         Log.Success("전투 데이터 로드 및 초기화 완료");
     }
+
+    private CardInstance NewInstance(int cardID)
+    {
+        int id = SaveManager.Instance.BattleData.nextInstanceID++;
+        return new CardInstance(cardID, id);
+    }
     #endregion
 
     #region Core Logic
-    /// <summary> 카드를 사용하고 결과를 처리합니다. </summary>
-    public void ExecuteCard(int cardID, Unit caster, Unit target = null)
+    /// <summary>
+    /// 손패의 특정 인스턴스 카드를 사용합니다.
+    /// 새로 드로우된 인스턴스 목록을 반환합니다.
+    /// </summary>
+    public List<CardInstance> ExecuteCard(int instanceID, Unit caster, Unit target = null)
     {
-        if (IsBattleOver) return;
+        if (IsBattleOver) return new List<CardInstance>();
 
-        CardData data = DataManager.Instance.GetCard(cardID);
-        if (data == null) return;
+        CardInstance instance = _handCards.Find(c => c.InstanceID == instanceID);
+        if (instance == null)
+        {
+            Log.Warning($"손패에 InstanceID {instanceID} 카드가 없음");
+            return new List<CardInstance>();
+        }
 
-        // 효과 프로세서 실행 (시트 명령어 해석)
-        EffectProcessor.Process(data.Effects, caster, target);
+        CardData data = DataManager.Instance.GetCard(instance.CardID);
+        if (data == null) return new List<CardInstance>();
+
+        // caster가 있을 때만 효과 프로세서 실행
+        if (caster != null)
+            EffectProcessor.Process(data.Effects, caster, target);
 
         // 덱 상태 업데이트
-        _handCards.Remove(cardID);
-        _discardPile.Add(cardID);
+        _handCards.Remove(instance);
+        _discardPile.Add(instance);
 
-        // 실시간 리필 로직 (기획: 최소 5장 유지)
-        if (_handCards.Count < MinHandCount)
-        {
-            DrawCard(1);
-        }
+        int drawNeeded = MinHandCount - _handCards.Count;
+        List<CardInstance> drawn = drawNeeded > 0 ? DrawCard(drawNeeded) : new List<CardInstance>();
 
         // 상태 저장 (난수 단계 포함)
         SaveManager.Instance.BattleData.randomStep = RandomUtil.CurrentStep;
@@ -81,12 +108,15 @@ public class BattleManager : Singleton<BattleManager>
 
         // 게임 종료 체크
         CheckBattleOver();
+
+        return drawn;
     }
     #endregion
 
     #region Deck Management
-    public void DrawCard(int count)
+    public List<CardInstance> DrawCard(int count)
     {
+        var drawn = new List<CardInstance>();
         for (int i = 0; i < count; i++)
         {
             if (_handCards.Count >= MaxHandCount) break;
@@ -101,12 +131,14 @@ public class BattleManager : Singleton<BattleManager>
                 ReshuffleDiscardToDraw();
             }
 
-            int cardID = _drawPile[0];
+            CardInstance instance = _drawPile[0];
             _drawPile.RemoveAt(0);
-            _handCards.Add(cardID);
+            _handCards.Add(instance);
+            drawn.Add(instance);
 
-            Log.Info($"카드 드로우: {cardID} (남은 덱: {_drawPile.Count})");
+            Log.Info($"카드 드로우: {instance.CardID}#{instance.InstanceID} (덱: {_drawPile.Count} | 버림: {_discardPile.Count})");
         }
+        return drawn;
     }
 
     private void ReshuffleDiscardToDraw()
@@ -121,6 +153,7 @@ public class BattleManager : Singleton<BattleManager>
     #region Battle Status
     private void CheckBattleOver()
     {
+        if (PlayerParty.Count == 0 || EnemyParty.Count == 0) return;
         // 모든 아군 사망 여부 체크
         bool allPlayersDead = PlayerParty.TrueForAll(p => p.CurrentHP <= 0);
         // 모든 적군 사망 여부 체크

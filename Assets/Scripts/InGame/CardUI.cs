@@ -1,8 +1,8 @@
-﻿using TMPro;
+﻿using DG.Tweening;
+using TMPro;
 using UnityEngine;
-using UnityEngine.UI;
 using UnityEngine.EventSystems;
-using DG.Tweening;
+using UnityEngine.UI;
 
 public class CardUI : MonoBehaviour, IBeginDragHandler, IDragHandler, IEndDragHandler, IPointerEnterHandler, IPointerExitHandler
 {
@@ -12,6 +12,7 @@ public class CardUI : MonoBehaviour, IBeginDragHandler, IDragHandler, IEndDragHa
     [SerializeField] private Image _cardIllustration;
     [SerializeField] private GameObject _goldMark;
 
+    public int InstanceID { get; private set; }
     public int CardID { get; private set; }
     public bool IsDragging { get; private set; }
     public bool IsHovering { get; private set; }
@@ -41,19 +42,48 @@ public class CardUI : MonoBehaviour, IBeginDragHandler, IDragHandler, IEndDragHa
         }
     }
 
-    public void Init(int cardID)
+    public void Init(CardInstance instance)
     {
-        CardID = cardID;
-        CardData data = DataManager.Instance.GetCard(cardID);
+        InstanceID = instance.InstanceID;
+        CardID = instance.CardID;
+
+        // 풀에서 재사용될 때 잔여 트윈/상태가 남아있을 수 있으므로 리셋
+        transform.DOKill();
+        transform.localRotation = Quaternion.identity;
+        transform.localScale = Vector3.one;
+        IsDragging = false;
+        IsHovering = false;
+        if (_group != null) _group.blocksRaycasts = true;
+        OffOverrideSorting();
+
+        CardData data = DataManager.Instance.GetCard(CardID);
         if (data == null) return;
 
         _nameText.text = data.Name;
         _descText.text = data.Description;
     }
 
+    /// <summary> 외부에서 카드의 인터랙션 가능 여부를 토글 (떨어지는 중 잡지 못하게 등) </summary>
+    public void SetInteractable(bool on)
+    {
+        if (_group != null) _group.blocksRaycasts = on;
+    }
+
     public void SetSortingOrder(int order)
     {
-        if (_canvas != null) _canvas.sortingOrder = order;
+        if (_canvas != null)
+        {
+            _canvas.overrideSorting = true;
+            _canvas.sortingOrder = order;
+        }
+    }
+
+    public void OffOverrideSorting()
+    {
+        if (_canvas != null)
+        {
+            _canvas.overrideSorting = false;
+        }
     }
 
     public void OnPointerEnter(PointerEventData eventData)
@@ -88,14 +118,13 @@ public class CardUI : MonoBehaviour, IBeginDragHandler, IDragHandler, IEndDragHa
 
             if (TargetArrow.Instance != null)
             {
-                // 캔버스 모드가 Camera라면 RectTransformUtility를 쓰는 게 가장 정확합니다.
                 RectTransformUtility.ScreenPointToWorldPointInRectangle(
                     Hand.Rect,
                     eventData.position,
                     eventData.pressEventCamera,
                     out Vector3 mouseWorldPos);
 
-                TargetArrow.Instance.UpdateArrow(transform.position, mouseWorldPos);
+                TargetArrow.Instance.UpdateArrow(transform.position, mouseWorldPos, eventData.position);
             }
         }        
         else
