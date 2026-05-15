@@ -1,7 +1,7 @@
 ﻿using System.Collections.Generic;
 using UnityEngine;
 
-public class CardPool : Singleton<CardPool>
+public class CardPool : SceneSingleton<CardPool>
 {
     [SerializeField] private GameObject _cardPrefab;
     private Stack<CardUI> _pool = new Stack<CardUI>();

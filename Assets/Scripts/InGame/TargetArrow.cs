@@ -1,7 +1,7 @@
 ﻿using System.Collections.Generic;
 using UnityEngine;
 
-public class TargetArrow : Singleton<TargetArrow>
+public class TargetArrow : SceneSingleton<TargetArrow>
 {
     [Header("Prefabs")]
     [SerializeField] private GameObject _dotPrefab;

@@ -20,18 +20,18 @@ public class GameManager : Singleton<GameManager>
         InitializeSystem();
     }
 
+    private void Start()
+    {
+        // 모든 Awake 완료 후 실행 → SaveManager.EstateData 접근 안전
+        CheckUserStatus();
+    }
+
     private void InitializeSystem()
     {
         Log.Info("게임 시스템 초기화 시작");
 
-        // 1. 매니저 부팅 순서 (중요한 순서는 이곳에서 제어할 것)
-        // DataManager나 SaveManager는 Singleton 호출 시점에 자동 생성
         if (SaveManager.Instance != null && DataManager.Instance != null)
-        {
             Log.Success("매니저 시스템 부팅 완료");
-        }
-
-        CheckUserStatus();
 
         IsInitialized = true;
         Log.Success("게임 시스템 초기화 완료");
@@ -39,22 +39,39 @@ public class GameManager : Singleton<GameManager>
 
     private void CheckUserStatus()
     {
-        // SaveManager나 데이터 자체가 없는 경우
         if (SaveManager.Instance == null || SaveManager.Instance.EstateData == null)
         {
             Log.Error("세이브 데이터를 불러올 수 없습니다!");
             return;
         }
 
-        if (string.IsNullOrEmpty(SaveManager.Instance.EstateData.uid))
+        var estate = SaveManager.Instance.EstateData;
+
+        if (!estate.isTutorialComplete)
         {
-            Log.Info("신규 유저 감지");
-            ChangeState(EGameState.Loading);
+            Log.Info("신규 유저 감지 → 튜토리얼 흐름 시작");
+            GrantStarterMewber();
         }
         else
         {
-            Log.Info($"기존 유저 접속 : {SaveManager.Instance.EstateData.UserName}");
+            Log.Info($"기존 유저 접속 : {estate.UserName}");
         }
+
+        // 신규/기존 유저 모두 Intro를 거쳐 라우팅 — IntroController가 분기 처리
+        StageManager.Instance.LoadStage(ESceneName.Intro, shouldSave: false);
+    }
+
+    /// <summary>최초 1회 MewberTable 첫 번째 뮤버를 자동 지급합니다.</summary>
+    private void GrantStarterMewber()
+    {
+        if (SaveManager.Instance.EstateData.ownedMewberIDs.Count > 0) return;
+
+        MewberData starter = DataManager.Instance.GetFirstMewber();
+        if (starter == null) return;
+
+        SaveManager.Instance.AcquireMewber(starter.ID);
+        SaveManager.Instance.SaveEstate();
+        Log.Success($"[GameManager] 초기 뮤버 지급: {starter.Name}");
     }
 
     public void ChangeState(EGameState newState)

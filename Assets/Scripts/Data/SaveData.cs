@@ -1,20 +1,85 @@
 ﻿using System.Collections.Generic;
 using System;
 
+// ─────────────────────────────────────────────
+//  카드풀 직렬화 보조 타입
+//  JsonUtility는 Dictionary를 지원하지 않으므로 List<CardEntry>로 저장합니다.
+// ─────────────────────────────────────────────
+
+[Serializable]
+public class CardEntry
+{
+    public int cardID;
+    public int count;
+}
+
+/// <summary>
+/// 뮤버 한 명의 카드풀 저장 데이터.
+/// CardLimit 이하의 총 장수를 초과해 카드를 보유할 수 없습니다.
+/// </summary>
+[Serializable]
+public class MewberPoolSave
+{
+    public int             mewberID;
+    public List<CardEntry> cards = new List<CardEntry>();
+
+    /// <summary>현재 보유 카드 총 장수</summary>
+    public int TotalCount()
+    {
+        int total = 0;
+        foreach (var e in cards) total += e.count;
+        return total;
+    }
+
+    /// <summary>List → Dictionary 변환 (런타임 조회용)</summary>
+    public Dictionary<int, int> ToDictionary()
+    {
+        var dict = new Dictionary<int, int>();
+        foreach (var e in cards) dict[e.cardID] = e.count;
+        return dict;
+    }
+
+    /// <summary>Dictionary → List 변환 (저장용)</summary>
+    public void FromDictionary(Dictionary<int, int> dict)
+    {
+        cards.Clear();
+        foreach (var kv in dict)
+            cards.Add(new CardEntry { cardID = kv.Key, count = kv.Value });
+    }
+}
+
+// ─────────────────────────────────────────────
+//  영지 세이브
+// ─────────────────────────────────────────────
+
 [Serializable]
 public class EstateSaveData
 {
-    public string uid;
-    public string UserName = "Kedy";
-    public int gold = 0;
-    public List<int> ownedMewberIDs = new List<int>();
-    public int highestFloor = 0;
-    public string lastSavedTime;
+    public string      uid;
+    public string      UserName        = "Kedy";
+    public int         gold            = 0;
+    public List<int>   ownedMewberIDs  = new List<int>();
+    public int         highestFloor    = 0;
+    public bool        isTutorialComplete = false;
+    public string      lastSavedTime;
+
+    /// <summary>뮤버별 카드풀 (뮤버 획득 시 StartBundle로 초기화)</summary>
+    public List<MewberPoolSave> mewberPools = new List<MewberPoolSave>();
 }
 
 [Serializable]
 public class BattleSaveData
 {
+    // 파티 편성 ───────────────────────────────
+    public List<int> partyMewberIDs = new List<int>();  // 최대 3명
+
+    // 던전 & 맵 ───────────────────────────────
+    public int         selectedDungeonID  = -1;
+    public int         pendingNodeID      = -1;
+    public EDifficulty selectedDifficulty = EDifficulty.Normal;
+    public List<MapNodeSaveData> mapNodes = new List<MapNodeSaveData>();
+    public int pendingEnemyGroupID = -1;  // 선택된 노드의 적 그룹 (Battle 씬 진입 전 세팅)
+
     // 전투 정보 ───────────────────────────────
     public bool isBattleActive = false;                                                 // 전투 여부
     public int currentFloor;                                                            // 현재 층

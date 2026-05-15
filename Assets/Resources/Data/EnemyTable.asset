@@ -1,0 +1,43 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: cc13d76af74b262478fde76b3cb3f887, type: 3}
+  m_Name: EnemyTable
+  m_EditorClassIdentifier: 
+  enemies:
+  - ID: 200
+    Name: "\uAC1C\uBC15\uD558 \uC2AC\uB77C\uC784"
+    Health: 10
+    Attack: 3
+    Bundle: 20001:3
+    SpriteIdle: calico_idle
+    SpriteAttack: calico_attack
+    SpriteDamaged: calico_damaged
+    SpriteSkill: calico_skill
+    SpriteFaceNormal: calico_idle_normal
+    SpriteFaceEyesClosed: calico_idle_eyesclosed
+    SpriteFaceDazed: calico_idle_dazed
+    InitialStatus: 
+    Reward: 
+  - ID: 201
+    Name: "\uAC1C\uBC15\uD558 \uC2AC\uB77C\uC7842"
+    Health: 10
+    Attack: 3
+    Bundle: 20001:3
+    SpriteIdle: calico_idle
+    SpriteAttack: calico_attack
+    SpriteDamaged: calico_damaged
+    SpriteSkill: calico_skill
+    SpriteFaceNormal: calico_idle_normal
+    SpriteFaceEyesClosed: calico_idle_eyesclosed
+    SpriteFaceDazed: calico_idle_dazed
+    InitialStatus: 
+    Reward: 

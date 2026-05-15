@@ -39,6 +39,15 @@ public class PileViewerUI : MonoBehaviour
     public void ShowDrawPile() => Show(EPileType.Draw);
     public void ShowDiscardPile() => Show(EPileType.Discard);
 
+    /// <summary>
+    /// BattleManager 없이 임의 카드 목록을 표시합니다. (파티 편성 씬 덱 보기 등)
+    /// </summary>
+    public void ShowCardList(string title, List<CardInstance> cards)
+    {
+        Populate(title, cards);
+        if (_panel != null) _panel.SetActive(true);
+    }
+
     public void Show(EPileType type)
     {
         if (BattleManager.Instance == null) return;

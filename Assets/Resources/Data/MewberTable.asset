@@ -12,4 +12,134 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 1fb7503c2f0772d42b14dbe5f232dbf8, type: 3}
   m_Name: MewberTable
   m_EditorClassIdentifier: 
-  mewbers: []
+  mewbers:
+  - ID: 100
+    Name: "\uCE98\uB9AC\uCF54"
+    Health: 33
+    Attack: 1
+    CardLimit: 9
+    SpriteIdle: calico_idle
+    SpriteAttack: calico_attack
+    SpriteDamaged: calico_damaged
+    SpriteSkill: calico_skill
+    SpriteFaceNormal: calico_idle_normal
+    SpriteFaceEyesClosed: calico_idle_eyesclosed
+    SpriteFaceDazed: calico_idle_dazed
+    StartBundle: 10001:3;10002:1;10003:1
+  - ID: 101
+    Name: "\uD131\uC2DC\uB3C4"
+    Health: 35
+    Attack: 3
+    CardLimit: 8
+    SpriteIdle: calico_idle
+    SpriteAttack: calico_attack
+    SpriteDamaged: calico_damaged
+    SpriteSkill: calico_skill
+    SpriteFaceNormal: calico_idle_normal
+    SpriteFaceEyesClosed: calico_idle_eyesclosed
+    SpriteFaceDazed: calico_idle_dazed
+    StartBundle: 10101:1;10102:3;10103:1
+  - ID: 102
+    Name: "\uB7EC\uC2DC\uC548\uBE14\uB8E8"
+    Health: 20
+    Attack: 5
+    CardLimit: 6
+    SpriteIdle: calico_idle
+    SpriteAttack: calico_attack
+    SpriteDamaged: calico_damaged
+    SpriteSkill: calico_skill
+    SpriteFaceNormal: calico_idle_normal
+    SpriteFaceEyesClosed: calico_idle_eyesclosed
+    SpriteFaceDazed: calico_idle_dazed
+    StartBundle: 10201:1;10202:2;10203:2
+  - ID: 103
+    Name: "\uC0F4"
+    Health: 20
+    Attack: 2
+    CardLimit: 15
+    SpriteIdle: calico_idle
+    SpriteAttack: calico_attack
+    SpriteDamaged: calico_damaged
+    SpriteSkill: calico_skill
+    SpriteFaceNormal: calico_idle_normal
+    SpriteFaceEyesClosed: calico_idle_eyesclosed
+    SpriteFaceDazed: calico_idle_dazed
+    StartBundle: 10301:5;10302:1;10303:1
+  - ID: 104
+    Name: "\uB799\uB3CC"
+    Health: 25
+    Attack: 2
+    CardLimit: 6
+    SpriteIdle: calico_idle
+    SpriteAttack: calico_attack
+    SpriteDamaged: calico_damaged
+    SpriteSkill: calico_skill
+    SpriteFaceNormal: calico_idle_normal
+    SpriteFaceEyesClosed: calico_idle_eyesclosed
+    SpriteFaceDazed: calico_idle_dazed
+    StartBundle: 10401:1;10402:1;10403:1
+  - ID: 105
+    Name: "\uBA54\uC778\uCFE4"
+    Health: 30
+    Attack: 5
+    CardLimit: 8
+    SpriteIdle: calico_idle
+    SpriteAttack: calico_attack
+    SpriteDamaged: calico_damaged
+    SpriteSkill: calico_skill
+    SpriteFaceNormal: calico_idle_normal
+    SpriteFaceEyesClosed: calico_idle_eyesclosed
+    SpriteFaceDazed: calico_idle_dazed
+    StartBundle: 10501:3;10502:1;10503:1
+  - ID: 106
+    Name: "\uBE0C\uB9AC\uD2F0\uC2DC \uB4DC \uC20F\uD5E4\uC5B4"
+    Health: 30
+    Attack: 5
+    CardLimit: 10
+    SpriteIdle: calico_idle
+    SpriteAttack: calico_attack
+    SpriteDamaged: calico_damaged
+    SpriteSkill: calico_skill
+    SpriteFaceNormal: calico_idle_normal
+    SpriteFaceEyesClosed: calico_idle_eyesclosed
+    SpriteFaceDazed: calico_idle_dazed
+    StartBundle: 10601:1;10602:3;10603:1
+  - ID: 107
+    Name: "\uC2A4\uD551\uD06C\uC2A4"
+    Health: 20
+    Attack: 1
+    CardLimit: 15
+    SpriteIdle: calico_idle
+    SpriteAttack: calico_attack
+    SpriteDamaged: calico_damaged
+    SpriteSkill: calico_skill
+    SpriteFaceNormal: calico_idle_normal
+    SpriteFaceEyesClosed: calico_idle_eyesclosed
+    SpriteFaceDazed: calico_idle_dazed
+    StartBundle: 10701:1;10702:1;10703:3
+  - ID: 108
+    Name: "\uBC45\uAC08"
+    Health: 30
+    Attack: 4
+    CardLimit: 5
+    SpriteIdle: calico_idle
+    SpriteAttack: calico_attack
+    SpriteDamaged: calico_damaged
+    SpriteSkill: calico_skill
+    SpriteFaceNormal: calico_idle_normal
+    SpriteFaceEyesClosed: calico_idle_eyesclosed
+    SpriteFaceDazed: calico_idle_dazed
+    StartBundle: 10801:2;10802:1;10803:1
+  - ID: 109
+    Name: "\uB178\uB974\uC6E8\uC774"
+    Health: 25
+    Attack: 1
+    CardLimit: 9
+    SpriteIdle: calico_idle
+    SpriteAttack: calico_attack
+    SpriteDamaged: calico_damaged
+    SpriteSkill: calico_skill
+    SpriteFaceNormal: calico_idle_normal
+    SpriteFaceEyesClosed: calico_idle_eyesclosed
+    SpriteFaceDazed: calico_idle_dazed
+    StartBundle: 10901:1;10902:1;10903:1

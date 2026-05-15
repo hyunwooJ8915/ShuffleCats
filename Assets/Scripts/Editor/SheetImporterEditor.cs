@@ -14,11 +14,14 @@ public class SheetImporterEditor : Editor
     // 여기에 시트 정보들을 등록 (SheetID, GID, 저장경로, 데이터타입)
     private static readonly string SheetID = "107RcCZk4NK1Y0OZPOeW7GwCrK7ND8Sn5VLTmsc-iT_I";
 
-    private static List<(string gid, string path, System.Type type, string fieldName)> configs 
-        = new List<(string, string, System.Type, string)> 
+    private static List<(string gid, string path, System.Type type, string fieldName)> configs
+        = new List<(string, string, System.Type, string)>
         {
-            ("0", "Assets/Resources/Data/CardTable.asset", typeof(CardData), "cards"),
-            ("505215350", "Assets/Resources/Data/MewberTable.asset", typeof(MewberData), "mewbers")
+            ("0",           "Assets/Resources/Data/CardTable.asset",       typeof(CardData),       "cards"),
+            ("505215350",  "Assets/Resources/Data/MewberTable.asset",     typeof(MewberData),     "mewbers"),
+            ("1337138560", "Assets/Resources/Data/EnemyTable.asset",      typeof(EnemyData),      "enemies"),
+            ("1241094206", "Assets/Resources/Data/DungeonTable.asset",    typeof(DungeonData),    "dungeons"),
+            ("94772191",   "Assets/Resources/Data/EnemyGroupTable.asset", typeof(EnemyGroupData), "groups"),
         };
 
     [MenuItem("Tools/Sync All Google Sheets")]

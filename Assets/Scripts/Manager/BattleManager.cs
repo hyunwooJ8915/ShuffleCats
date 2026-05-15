@@ -28,21 +28,30 @@ public class BattleManager : Singleton<BattleManager>
 
     public bool IsBattleOver { get; private set; } = false;
 
+    /// <summary>
+    /// true인 동안은 아군·적군 모두 카드 상호작용이 불가합니다.
+    /// 카드 한 장의 효과 처리 + 낙하 애니메이션이 완전히 끝나야 false로 돌아옵니다.
+    /// </summary>
+    public bool IsProcessing { get; private set; } = false;
+
+    /// <summary>
+    /// 카드 한 장이 완전히 처리될 때마다 1씩 증가하는 턴 카운터
+    /// </summary>
+    public int TurnCount { get; private set; } = 0;
+
     private HandUI _handUI;
     #endregion
 
-    private void Start()
+    /// <summary>
+    /// 외부(TutorialStarter, MapManager 등)에서 전투 준비 완료 후 호출합니다.
+    /// 배틀 씬 로드 후 호출되므로, 이 시점에 씬 내 UI를 탐색합니다.
+    /// </summary>
+    public void BeginBattle()
     {
-        _handUI = FindFirstObjectByType<HandUI>();
+        SaveManager.Instance.BattleData.isBattleActive = true;
+        SaveManager.Instance.SaveBattle();
 
-        // 테스트용: 샘플 덱으로 전투 초기화
-        List<int> testDeck = new List<int> { 10001, 10002, 10003, 10101, 10102,
-                                             10103, 10201, 10202, 10203, 10301,
-                                             10302, 10303, 10401, 10402, 10403,
-                                             10501, 10502, 10503, 10601, 10602,
-                                             10603, 10701, 10702, 10703, 10801,
-                                             10802, 10803, 10901, 10902, 10903 };
-        PrepareBattle(42, testDeck);
+        _handUI = FindFirstObjectByType<HandUI>();
         _handUI?.RefreshHand(new List<CardInstance>(_handCards));
     }
 
@@ -75,9 +84,10 @@ public class BattleManager : Singleton<BattleManager>
     #region Core Logic
     /// <summary>
     /// 손패의 특정 인스턴스 카드를 사용합니다.
+    /// handTargetIDs: Discard 효과가 사용할 손패 카드 InstanceID 목록 (선택 순서 유지)
     /// 새로 드로우된 인스턴스 목록을 반환합니다.
     /// </summary>
-    public List<CardInstance> ExecuteCard(int instanceID, Unit caster, Unit target = null)
+    public List<CardInstance> ExecuteCard(int instanceID, Unit caster, Unit target = null, List<int> handTargetIDs = null)
     {
         if (IsBattleOver) return new List<CardInstance>();
 
@@ -91,25 +101,78 @@ public class BattleManager : Singleton<BattleManager>
         CardData data = DataManager.Instance.GetCard(instance.CardID);
         if (data == null) return new List<CardInstance>();
 
-        // caster가 있을 때만 효과 프로세서 실행
-        if (caster != null)
-            EffectProcessor.Process(data.Effects, caster, target);
-
-        // 덱 상태 업데이트
+        // 메인 카드를 먼저 손패에서 제거 (효과 실행 중 hand 카운트 정확성 유지)
         _handCards.Remove(instance);
         _discardPile.Add(instance);
 
-        int drawNeeded = MinHandCount - _handCards.Count;
-        List<CardInstance> drawn = drawNeeded > 0 ? DrawCard(drawNeeded) : new List<CardInstance>();
+        // caster가 없으면 살아있는 첫 번째 아군 유닛으로 대체
+        if (caster == null)
+            caster = PlayerParty.Find(u => !u.IsDead);
 
-        // 상태 저장 (난수 단계 포함)
+        // 효과 실행 전 손패 스냅샷 (Draw 효과로 추가된 카드 추적용)
+        var handSnapshot = new System.Collections.Generic.HashSet<int>();
+        foreach (var c in _handCards) handSnapshot.Add(c.InstanceID);
+
+        EffectProcessor.Process(data.Effects, caster, target, handTargetIDs);
+
+        // 효과 실행 중 추가된 카드 수집
+        var effectDrawn = new List<CardInstance>();
+        foreach (var c in _handCards)
+            if (!handSnapshot.Contains(c.InstanceID)) effectDrawn.Add(c);
+
+        // 최소 손패 유지 리필
+        int drawNeeded = MinHandCount - _handCards.Count;
+        var refillDrawn = drawNeeded > 0 ? DrawCard(drawNeeded) : new List<CardInstance>();
+
+        var drawn = new List<CardInstance>(effectDrawn);
+        drawn.AddRange(refillDrawn);
+
         SaveManager.Instance.BattleData.randomStep = RandomUtil.CurrentStep;
         SaveManager.Instance.SaveBattle();
 
-        // 게임 종료 체크
         CheckBattleOver();
 
         return drawn;
+    }
+    #endregion
+
+    #region Processing Lock & Turn Counter
+    /// <summary>
+    /// HandUI가 카드 처리 시작/종료 시 호출합니다.
+    /// false로 전환될 때 TurnCount를 증가시킵니다.
+    /// </summary>
+    public void SetProcessing(bool processing)
+    {
+        IsProcessing = processing;
+        if (!processing)
+        {
+            TurnCount++;
+            Log.Info($"턴 {TurnCount} 완료");
+        }
+    }
+    #endregion
+
+    #region Hand Discard Helpers (EffectProcessor 전용)
+    /// <summary>
+    /// EffectProcessor의 Discard 효과에서 호출합니다.
+    /// 리필 드로우 없이 카드 한 장을 손패 → 버린 카드 더미로 이동합니다.
+    /// </summary>
+    internal void MoveHandToDiscard(int instanceID)
+    {
+        CardInstance inst = _handCards.Find(c => c.InstanceID == instanceID);
+        if (inst == null) return;
+        _handCards.Remove(inst);
+        _discardPile.Add(inst);
+    }
+
+    /// <summary>
+    /// EffectProcessor의 DiscardAll 효과에서 호출합니다.
+    /// 손패 전체를 버린 카드 더미로 이동합니다.
+    /// </summary>
+    internal void DiscardAllHandCards()
+    {
+        _discardPile.AddRange(_handCards);
+        _handCards.Clear();
     }
     #endregion
 
@@ -150,26 +213,85 @@ public class BattleManager : Singleton<BattleManager>
     }
     #endregion
 
+    #region Party Queries
+    /// <summary> caster 기준으로 생존한 적군 파티 반환 </summary>
+    public List<Unit> GetEnemies(Unit caster)
+    {
+        List<Unit> party = PlayerParty.Contains(caster) ? EnemyParty : PlayerParty;
+        return party.FindAll(u => !u.IsDead);
+    }
+
+    /// <summary> caster 기준으로 생존한 랜덤 적 1명 반환 </summary>
+    public Unit GetRandomEnemy(Unit caster)
+    {
+        List<Unit> enemies = GetEnemies(caster);
+        return enemies.Count > 0 ? enemies[RandomUtil.Range(0, enemies.Count)] : null;
+    }
+
+    /// <summary> caster 기준으로 생존한 아군 파티 반환 </summary>
+    public List<Unit> GetAllies(Unit caster)
+    {
+        List<Unit> party = PlayerParty.Contains(caster) ? PlayerParty : EnemyParty;
+        return party.FindAll(u => !u.IsDead);
+    }
+
+    /// <summary> caster 기준으로 생존한 랜덤 아군 1명 반환 </summary>
+    public Unit GetRandomAlly(Unit caster)
+    {
+        List<Unit> allies = GetAllies(caster);
+        return allies.Count > 0 ? allies[RandomUtil.Range(0, allies.Count)] : null;
+    }
+
+    /// <summary>
+    /// Unit.OnDead()에서 호출됩니다.
+    /// 사망한 유닛을 파티에서 제거하고 전투 종료 여부를 확인합니다.
+    /// </summary>
+    public void NotifyUnitDead(Unit unit)
+    {
+        PlayerParty.Remove(unit);
+        EnemyParty.Remove(unit);
+        CheckBattleOver();
+    }
+    #endregion
+
     #region Battle Status
     private void CheckBattleOver()
     {
-        if (PlayerParty.Count == 0 || EnemyParty.Count == 0) return;
-        // 모든 아군 사망 여부 체크
-        bool allPlayersDead = PlayerParty.TrueForAll(p => p.CurrentHP <= 0);
-        // 모든 적군 사망 여부 체크
-        bool allEnemiesDead = EnemyParty.TrueForAll(e => e.CurrentHP <= 0);
+        if (IsBattleOver) return;
+        // 전투 시작 전(양 파티 모두 미등록)은 스킵
+        if (PlayerParty.Count == 0 && EnemyParty.Count == 0) return;
 
-        if (allPlayersDead) FinishBattle(false);
-        else if (allEnemiesDead) FinishBattle(true);
+        bool allPlayersDead = PlayerParty.Count == 0 || PlayerParty.TrueForAll(u => u.IsDead);
+        bool allEnemiesDead = EnemyParty.Count  == 0 || EnemyParty.TrueForAll(u => u.IsDead);
+
+        if (allPlayersDead)
+        {
+            IsBattleOver = true;
+            StartCoroutine(DelayedFinish(false));
+        }
+        else if (allEnemiesDead)
+        {
+            IsBattleOver = true;
+            StartCoroutine(DelayedFinish(true));
+        }
+    }
+
+    private System.Collections.IEnumerator DelayedFinish(bool isWin)
+    {
+        yield return new WaitForSeconds(1.0f);
+        FinishBattle(isWin);
     }
 
     private void FinishBattle(bool isWin)
     {
         IsBattleOver = true;
-        if (isWin) Log.Success("전투 승리");
-        else Log.Error("전투 패배");
+        SaveManager.Instance.BattleData.isBattleActive = false;
+        SaveManager.Instance.SaveBattle();
 
-        // 전투 종료 시 임시 데이터 삭제 및 영지 데이터 업데이트 로직 연결
+        if (isWin) Log.Success("전투 승리");
+        else       Log.Error("전투 패배");
+
+        FindFirstObjectByType<BattleResultUI>()?.Show(isWin);
     }
     #endregion
 }

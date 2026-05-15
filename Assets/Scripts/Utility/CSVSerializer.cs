@@ -147,8 +147,24 @@ public static class CSVSerializer
             Type elemType = type.GetElementType();
             Array newArray = Array.CreateInstance(elemType, elements.Length);
             for (int i = 0; i < elements.Length; i++)
-                newArray.SetValue(Convert.ChangeType(elements[i], elemType), i);
+                newArray.SetValue(Convert.ChangeType(elements[i].Trim(), elemType), i);
             field.SetValue(obj, newArray);
+        }
+        else if (type.IsGenericType && type.GetGenericTypeDefinition() == typeof(List<>))
+        { // List<T> 처리 (기본 타입 및 Enum, ; 구분)
+            Type elemType = type.GetGenericArguments()[0];
+            string[] elements = value.Split(ArraySeparator);
+            IList list = (IList)Activator.CreateInstance(type);
+
+            foreach (var e in elements)
+            {
+                string trimmed = e.Trim();
+                if (string.IsNullOrEmpty(trimmed)) continue;
+                list.Add(elemType.IsEnum
+                    ? Enum.Parse(elemType, trimmed)
+                    : Convert.ChangeType(trimmed, elemType));
+            }
+            field.SetValue(obj, list);
         }
         else if (type.IsGenericType && type.GetGenericTypeDefinition() == typeof(Dictionary<,>))
         { // 딕셔너리 처리

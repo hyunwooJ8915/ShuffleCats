@@ -17,6 +17,7 @@ public class StageManager : Singleton<StageManager>
     [SerializeField] private float _fadeDuration = 0.5f;
 
     private bool _isTransitioning = false;
+    public bool IsTransitioning => _isTransitioning;
     #endregion
 
     #region PublicMethods
@@ -57,6 +58,9 @@ public class StageManager : Singleton<StageManager>
             yield return null;
         }
 
+        // 페이드 인
+        yield return CoFade(1, 0);
+
         _isTransitioning = false;
     }
 
@@ -68,17 +72,20 @@ public class StageManager : Singleton<StageManager>
             yield break;
         }
 
+        _fadeCanvasGroup.blocksRaycasts = true;
         float timer = 0f;
         _fadeCanvasGroup.alpha = startAlpha;
 
         while (timer < _fadeDuration)
         {
             timer += Time.deltaTime;
-            _fadeCanvasGroup.alpha = Mathf.Lerp(startAlpha, endAlpha, timer);
+            _fadeCanvasGroup.alpha = Mathf.Lerp(startAlpha, endAlpha, timer / _fadeDuration);
             yield return null;
         }
 
         _fadeCanvasGroup.alpha = endAlpha;
+        // 완전히 투명해지면 레이캐스트 차단 해제
+        _fadeCanvasGroup.blocksRaycasts = endAlpha > 0f;
     }
 
     // 차후 연출을 위해 임시 구현

@@ -59,6 +59,84 @@ public class SaveManager : Singleton<SaveManager>
         BattleData = new BattleSaveData();
         Log.Info("전투 임시 데이터 초기화");
     }
+
+    // ─────────────────────────────────────────────
+    //  뮤버 카드풀 관리
+    // ─────────────────────────────────────────────
+
+    /// <summary>
+    /// 뮤버를 처음 획득할 때 호출합니다.
+    /// StartBundle로 카드풀을 초기화하고 ownedMewberIDs에 등록합니다.
+    /// 이미 등록된 뮤버라면 아무것도 하지 않습니다.
+    /// </summary>
+    public bool AcquireMewber(int mewberID)
+    {
+        if (EstateData.ownedMewberIDs.Contains(mewberID)) return false;
+
+        MewberData data = DataManager.Instance.GetMewberData(mewberID);
+        if (data == null)
+        {
+            Log.Error($"[SaveManager] 뮤버 ID {mewberID} 데이터 없음");
+            return false;
+        }
+
+        EstateData.ownedMewberIDs.Add(mewberID);
+
+        var pool = new MewberPoolSave { mewberID = mewberID };
+        pool.FromDictionary(data.ParseStartBundle());
+        EstateData.mewberPools.Add(pool);
+
+        Log.Info($"[SaveManager] {data.Name} 획득 — 카드풀 초기화 완료 ({pool.TotalCount()}/{data.CardLimit})");
+        return true;
+    }
+
+    /// <summary>
+    /// 뮤버의 현재 카드풀을 반환합니다. 없으면 null.
+    /// </summary>
+    public MewberPoolSave GetMewberPool(int mewberID)
+        => EstateData.mewberPools.Find(p => p.mewberID == mewberID);
+
+    /// <summary>
+    /// 뮤버의 카드풀에 카드를 추가합니다.
+    /// CardLimit 초과 시 실패(false 반환).
+    /// </summary>
+    public bool AddCardToPool(int mewberID, int cardID, int count = 1)
+    {
+        MewberData data = DataManager.Instance.GetMewberData(mewberID);
+        if (data == null) return false;
+
+        MewberPoolSave pool = GetMewberPool(mewberID);
+        if (pool == null) return false;
+
+        if (pool.TotalCount() + count > data.CardLimit)
+        {
+            Log.Warning($"[SaveManager] {data.Name}의 카드풀 한도 초과 ({pool.TotalCount()}/{data.CardLimit})");
+            return false;
+        }
+
+        CardEntry entry = pool.cards.Find(e => e.cardID == cardID);
+        if (entry != null) entry.count += count;
+        else               pool.cards.Add(new CardEntry { cardID = cardID, count = count });
+
+        Log.Info($"[SaveManager] {data.Name}에 카드 {cardID} x{count} 추가 → ({pool.TotalCount()}/{data.CardLimit})");
+        return true;
+    }
+
+    /// <summary>
+    /// 뮤버의 카드풀에서 카드를 제거합니다. 보유량이 0이 되면 항목 자체를 삭제합니다.
+    /// </summary>
+    public bool RemoveCardFromPool(int mewberID, int cardID, int count = 1)
+    {
+        MewberPoolSave pool = GetMewberPool(mewberID);
+        if (pool == null) return false;
+
+        CardEntry entry = pool.cards.Find(e => e.cardID == cardID);
+        if (entry == null || entry.count < count) return false;
+
+        entry.count -= count;
+        if (entry.count == 0) pool.cards.Remove(entry);
+        return true;
+    }
     #endregion
 
     #region PrivateMethods

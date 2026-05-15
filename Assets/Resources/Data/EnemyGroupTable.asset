@@ -1,0 +1,27 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 6f908490f6cf08148bdbfec5001253ef, type: 3}
+  m_Name: EnemyGroupTable
+  m_EditorClassIdentifier: 
+  groups:
+  - ID: 600
+    GroupName: "\uAC1C\uBC15\uD558 \uC2AC\uB77C\uC784"
+    GroupType: 0
+    EnemyIDs: c8000000
+  - ID: 800
+    GroupName: "\uAC1C\uBC15\uD558 \uC2AC\uB77C\uC784 \uBB34\uB9AC"
+    GroupType: 1
+    EnemyIDs: c8000000c8000000c8000000
+  - ID: 1000
+    GroupName: "\uD0B9 \uC2AC\uB77C\uC784"
+    GroupType: 2
+    EnemyIDs: c8000000

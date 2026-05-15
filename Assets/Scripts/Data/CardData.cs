@@ -6,9 +6,11 @@
 [System.Serializable]
 public class CardData
 {
-    public int ID;
-    public int OwnerID;
+    public int    ID;
+    public int    OwnerID;
     public string Name;
     public string Effects;
     public string Description;
+    /// <summary>Addressables 주소. 시트 예시: "Sprites/card_fury"</summary>
+    public string SpritePath;
 }

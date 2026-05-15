@@ -1,4 +1,5 @@
 ﻿using System.Collections.Generic;
+using TMPro;
 using UnityEngine;
 using DG.Tweening;
 using UnityEngine.EventSystems;
@@ -27,12 +28,29 @@ public class HandUI : MonoBehaviour
     [Tooltip("낙하 진행 시간(초)")]
     [SerializeField] private float _discardDuration = 0.55f;
 
+    [Header("Hand Selection Popup")]
+    [Tooltip("손패 선택 모드 진입 시 표시할 팝업 GameObject")]
+    [SerializeField] private GameObject _selectionPopup;
+    [Tooltip("팝업 안의 안내 텍스트")]
+    [SerializeField] private TextMeshProUGUI _selectionPopupText;
+
     private List<CardUI> _activeCards = new List<CardUI>();
     public bool IsTargetingMode { get; private set; }
-
-    // 현재 드래그 중인 카드가 있는지 확인하는 프로퍼티
     public bool IsAnyCardDragging { get; private set; }
     public RectTransform Rect => GetComponent<RectTransform>();
+
+    // ─────────────────────────────────────────────
+    //  손패 선택 모드
+    // ─────────────────────────────────────────────
+
+    public bool IsSelectionMode { get; private set; }
+    private int _selectionRequired;
+    private List<CardUI> _selectedCards = new List<CardUI>();
+    private System.Action<List<int>, List<CardUI>> _onSelectionComplete;
+
+    // ─────────────────────────────────────────────
+    //  손패 초기화 / 레이아웃
+    // ─────────────────────────────────────────────
 
     public void RefreshHand(List<CardInstance> hand)
     {
@@ -50,44 +68,41 @@ public class HandUI : MonoBehaviour
         int count = _activeCards.Count;
         if (count == 0) return;
 
-        // 기본 간격 및 가로폭 계산
         float currentSpacing = Mathf.Min(_maxSpacing, _maxWidth / Mathf.Max(1, count - 1));
-        float totalWidth = (count - 1) * currentSpacing;
+        float totalWidth     = (count - 1) * currentSpacing;
 
         for (int i = 0; i < count; i++)
         {
             CardUI card = _activeCards[i];
 
-            // 타겟팅 모드일 때 해당 카드는 중앙(200) 위치를 유지해야 하므로 정렬 루프에서 제외
             if (card.IsDragging && IsTargetingMode) continue;
 
-            // 기본 부채꼴 위치/회전값 계산
             float normalizeIdx = (count > 1) ? (i / (float)(count - 1) - 0.5f) * 2f : 0f;
-            float posX = normalizeIdx * (totalWidth * 0.5f);
-            float posY = (1f - (normalizeIdx * normalizeIdx)) * _curveStrength;
-            float rotZ = normalizeIdx * -_maxRotation;
+            float posX         = normalizeIdx * (totalWidth * 0.5f);
+            float posY         = (1f - (normalizeIdx * normalizeIdx)) * _curveStrength;
+            float rotZ         = normalizeIdx * -_maxRotation;
+            float targetScale  = 1.0f;
+            int sortingOrder = (i + 1) * 10;
 
-            float targetScale = 1.0f;
-            int sortingOrder = i * 10;
-
-            // 마우스 오버 상태 연출 (단, 다른 카드를 드래그 중이 아닐 때만)
             if (card.IsHovering && !IsAnyCardDragging)
             {
-                targetScale = 1.25f;
-                posY += 160f;
-                rotZ = 0f;    // 가독성을 위해 각도 직각 고정
+                // 호버가 선택 상태보다 우선 (선택 모드 중에도 활성화)
+                targetScale  = 1.25f;
+                posY        += 160f;
+                rotZ         = 0f;
+                sortingOrder = 500;
+            }
+            else if (IsSelectionMode && card.IsSelected)
+            {
+                // 호버 중이 아닐 때만 선택 범프 적용
+                posY        += 80f;
                 sortingOrder = 500;
             }
 
-            // 기존 트윈과 충돌 방지
             card.transform.DOKill();
-
-            // 최종 연출 적용
             card.transform.DOLocalMove(new Vector3(posX, posY, 0f), 0.25f).SetEase(Ease.OutCubic);
             card.transform.DOLocalRotate(new Vector3(0, 0, rotZ), 0.25f);
             card.transform.DOScale(targetScale, 0.2f);
-
-            // 시각적 레이어 순서 적용
             card.SetSortingOrder(sortingOrder);
         }
     }
@@ -95,25 +110,29 @@ public class HandUI : MonoBehaviour
     public void SetTargetingMode(bool active, CardUI card)
     {
         IsTargetingMode = active;
-        if (TargetArrow.Instance != null) TargetArrow.Instance.SetActive(active);
+
+        if (TargetArrow.Instance != null)
+            TargetArrow.Instance.SetActive(active && card != null && card.RequiresTarget);
 
         if (active)
         {
-            // 타겟팅 모드 진입 시 카드를 중앙 고정 위치로 즉시 이동
-            card.transform.DOKill(); // 기존 움직임 제거
+            card.transform.DOKill();
             card.transform.DOLocalMove(new Vector3(0, 200f, 0), 0.2f).SetEase(Ease.OutBack);
             card.transform.DOLocalRotate(Vector3.zero, 0.2f);
-            card.transform.DOScale(1.0f, 0.2f); // 고정 중일 땐 기본 크기 유지
+            card.transform.DOScale(1.0f, 0.2f);
             card.SetSortingOrder(1000);
         }
     }
 
-    // 드래그 시작/종료 시 호출하여 상태 기록
     public void SetAnyCardDragging(bool dragging)
     {
         IsAnyCardDragging = dragging;
         if (!dragging) UpdateLayout();
     }
+
+    // ─────────────────────────────────────────────
+    //  카드 드롭 처리 (아군 카드)
+    // ─────────────────────────────────────────────
 
     public void HandleCardDrop(CardUI card, PointerEventData eventData)
     {
@@ -121,74 +140,241 @@ public class HandUI : MonoBehaviour
         IsAnyCardDragging = false;
         if (TargetArrow.Instance != null) TargetArrow.Instance.SetActive(false);
 
-        RaycastHit2D hit = Physics2D.Raycast(Camera.main.ScreenToWorldPoint(eventData.position), Vector2.zero);
-        Unit target = hit.collider?.GetComponent<Unit>();
+        bool droppedHigh = eventData.position.y > Screen.height * 0.35f;
 
-        if (target != null && eventData.position.y > Screen.height * 0.35f)
+        if (!card.RequiresTarget && droppedHigh)
         {
-            ExecuteCardEffect(card, target);
+            TryExecuteOrSelect(card, null);
+        }
+        else
+        {
+            RaycastHit2D hit    = Physics2D.Raycast(Camera.main.ScreenToWorldPoint(eventData.position), Vector2.zero);
+            Unit unitTarget = hit.collider?.GetComponent<Unit>();
+
+            if (unitTarget != null && droppedHigh)
+                TryExecuteOrSelect(card, unitTarget);
+            else
+                UpdateLayout();
+        }
+    }
+
+    /// <summary>
+    /// 손패 선택 효과(Discard:N)가 있으면 선택 모드를 먼저 진행하고,
+    /// 없으면 즉시 카드를 실행합니다.
+    /// </summary>
+    private void TryExecuteOrSelect(CardUI card, Unit unitTarget)
+    {
+        CardData data        = DataManager.Instance.GetCard(card.CardID);
+        int discardCount = data != null ? HandTargetHelper.GetDiscardCount(data.Effects) : 0;
+        int selectable   = _activeCards.Count - 1; // 자신 제외
+
+        BattleManager.Instance.SetProcessing(true); // ── 처리 락 ON ──
+
+        if (discardCount > 0 && selectable > 0)
+        {
+            // 가운데 대기 카드: 숨김 처리 (손패 가림 방지)
+            _activeCards.Remove(card);
+            card.transform.DOKill();
+            card.transform.DOLocalMove(new Vector3(0, 200f, 0), 0.2f).SetEase(Ease.OutBack);
+            card.transform.DOLocalRotate(Vector3.zero, 0.2f);
+            card.SetSortingOrder(1000);
+            card.SetInteractable(false);
+            card.SetVisible(false); // ← 숨김
+
+            UpdateLayout();
+            ShowSelectionPopup();
+
+            int pendingID   = card.InstanceID;
+            int actualCount = Mathf.Min(discardCount, _activeCards.Count);
+
+            StartHandSelection(actualCount, (List<int> selectedIDs, List<CardUI> selectedUIs) =>
+            {
+                HideSelectionPopup();
+                card.SetVisible(true); // ← 낙하 직전 다시 표시
+
+                // 선택된 카드 낙하 (처리 락 해제 없이)
+                foreach (var sel in selectedUIs)
+                    PlayFallAnimation(sel, new List<CardInstance>(), releaseLock: false);
+
+                List<CardInstance> drawn = BattleManager.Instance.ExecuteCard(pendingID, null, unitTarget, selectedIDs);
+                UpdateLayout();
+                PlayFallAnimation(card, drawn, releaseLock: true);
+            });
+        }
+        else
+        {
+            ExecuteCardEffect(card, unitTarget);
+        }
+    }
+
+    // ─────────────────────────────────────────────
+    //  손패 선택 모드
+    // ─────────────────────────────────────────────
+
+    private void StartHandSelection(int count, System.Action<List<int>, List<CardUI>> onComplete)
+    {
+        IsSelectionMode      = true;
+        _selectionRequired   = count;
+        _selectedCards.Clear();
+        _onSelectionComplete = onComplete;
+        UpdateLayout();
+    }
+
+    /// <summary> CardUI.OnPointerClick → 여기서 선택/해제 처리 </summary>
+    public void OnCardClicked(CardUI card)
+    {
+        if (!IsSelectionMode) return;
+
+        if (card.IsSelected)
+        {
+            card.SetSelected(false);
+            _selectedCards.Remove(card);
+            UpdateLayout();
+        }
+        else if (_selectedCards.Count < _selectionRequired)
+        {
+            card.SetSelected(true);
+            _selectedCards.Add(card);
+            UpdateLayout();
+
+            if (_selectedCards.Count >= _selectionRequired)
+                ConfirmHandSelection();
+        }
+    }
+
+    private void ConfirmHandSelection()
+    {
+        IsSelectionMode = false;
+
+        var selectedIDs = new List<int>();
+        var selectedUIs = new List<CardUI>(_selectedCards);
+
+        foreach (var c in _selectedCards)
+        {
+            selectedIDs.Add(c.InstanceID);
+            c.SetSelected(false);
+            _activeCards.Remove(c);
+        }
+        _selectedCards.Clear();
+
+        var callback     = _onSelectionComplete;
+        _onSelectionComplete = null;
+        callback?.Invoke(selectedIDs, selectedUIs);
+    }
+
+    // ─────────────────────────────────────────────
+    //  선택 팝업
+    // ─────────────────────────────────────────────
+
+    private void ShowSelectionPopup()
+    {
+        if (_selectionPopup == null) return;
+        _selectionPopup.SetActive(true);
+        if (_selectionPopupText != null)
+            _selectionPopupText.text = "카드를 선택하세요.";
+    }
+
+    private void HideSelectionPopup()
+    {
+        if (_selectionPopup == null) return;
+        _selectionPopup.SetActive(false);
+    }
+
+    // ─────────────────────────────────────────────
+    //  카드 실행 (아군)
+    // ─────────────────────────────────────────────
+
+    private void ExecuteCardEffect(CardUI card, Unit target)
+    {
+        CardData data = DataManager.Instance.GetCard(card.CardID);
+
+        // DiscardAll 효과가 있으면 실행 전에 손패 스냅샷 (재생 카드 제외)
+        // → 실행 후 비교하면 리필 카드와 뒤섞여 정확히 감지할 수 없음
+        List<CardUI> handToDiscard = null;
+        if (data != null && data.Effects.Contains("DiscardAll"))
+        {
+            handToDiscard = new List<CardUI>(_activeCards);
+            handToDiscard.Remove(card);
+        }
+
+        _activeCards.Remove(card);
+        List<CardInstance> drawn = BattleManager.Instance.ExecuteCard(card.InstanceID, null, target);
+
+        if (handToDiscard != null && handToDiscard.Count > 0)
+        {
+            foreach (var c in handToDiscard) _activeCards.Remove(c);
+            StartCoroutine(PlayDiscardAllAnimation(card, handToDiscard, drawn));
         }
         else
         {
             UpdateLayout();
+            PlayFallAnimation(card, drawn, releaseLock: true);
         }
     }
 
-    private void ExecuteCardEffect(CardUI card, Unit target)
+    // 재생 카드 → 손패 오른쪽부터 한 장씩 낙하 → 드로우 카드 한 장씩 생성
+    private System.Collections.IEnumerator PlayDiscardAllAnimation(
+        CardUI mainCard, List<CardUI> handDiscards, List<CardInstance> drawn)
     {
-        int instanceID = card.InstanceID;
-        _activeCards.Remove(card);
+        const float stagger = 0.08f;
+        float fallTotal = _discardBounceDuration + _discardDuration;
 
-        // 덱 데이터 업데이트 (버리기 + 드로우) 후 새로 뽑힌 인스턴스 수령
-        List<CardInstance> drawn = BattleManager.Instance.ExecuteCard(instanceID, null, target);
+        PlayFallAnimation(mainCard, new List<CardInstance>(), releaseLock: false);
+        yield return new WaitForSeconds(stagger);
 
-        // 나머지 카드 즉시 재정렬
-        UpdateLayout();
-
-        // 카드 퇴장 연출: 위로 살짝 튕긴 뒤 화면 하단으로 낙하
-        card.transform.DOKill();
-        card.SetSortingOrder(2000);   // 떨어지는 동안 다른 카드 위로 보이도록
-        card.SetInteractable(false);  // 낙하 중인 카드 다시 못 잡도록 차단
-
-        float startY = card.transform.localPosition.y;
-        float startX = card.transform.localPosition.x;
-        float tilt = UnityEngine.Random.Range(-25f, 25f);
-        float drift = UnityEngine.Random.Range(-60f, 60f);
-        float totalDuration = _discardBounceDuration + _discardDuration;
-
-        // 회전과 가로 표류는 전체 듀레이션에 걸쳐 천천히 진행
-        card.transform.DOLocalRotate(new Vector3(0, 0, tilt), totalDuration);
-        card.transform.DOLocalMoveX(startX + drift, totalDuration).SetEase(Ease.OutQuad);
-
-        // Y축은 시퀀스: 살짝 위로 튕긴 후 → 가속하며 낙하
-        Sequence fallSeq = DOTween.Sequence();
-        fallSeq.Append(card.transform
-            .DOLocalMoveY(startY + _discardBounceHeight, _discardBounceDuration)
-            .SetEase(Ease.OutQuad));
-        fallSeq.Append(card.transform
-            .DOLocalMoveY(_discardFallDistance, _discardDuration)
-            .SetEase(Ease.InCubic));
-        fallSeq.OnComplete(() =>
+        for (int i = handDiscards.Count - 1; i >= 0; i--)
         {
-            CardPool.Instance.ReturnCard(card);
+            PlayFallAnimation(handDiscards[i], new List<CardInstance>(), releaseLock: false);
+            if (i > 0) yield return new WaitForSeconds(stagger);
+        }
 
-            // 새로 뽑힌 카드들은 뽑을 카드 더미 위치에서 솟아오르도록 배치
-            foreach (CardInstance inst in drawn) SpawnFromDrawPile(inst);
+        yield return new WaitForSeconds(fallTotal);
+
+        foreach (var inst in drawn)
+        {
+            if (!_activeCards.Exists(c => c.InstanceID == inst.InstanceID))
+                SpawnFromDrawPile(inst);
             UpdateLayout();
-        });
+            yield return new WaitForSeconds(0.15f);
+        }
+
+        BattleManager.Instance.SetProcessing(false);
     }
 
-    /// <summary> 손패에 카드 한 장을 추가합니다. (외부에서 직접 추가할 때 사용) </summary>
+    // ─────────────────────────────────────────────
+    //  적 카드 사용 (EnemyAI 호출)
+    // ─────────────────────────────────────────────
+
+    /// <summary>
+    /// EnemyAI가 선택한 카드를 즉시 실행하고 낙하 연출을 재생합니다.
+    /// </summary>
+    public void PlayEnemyCard(CardInstance instance, Unit caster, Unit target)
+    {
+        CardUI card = _activeCards.Find(c => c.InstanceID == instance.InstanceID);
+        if (card == null)
+        {
+            Log.Warning($"[HandUI] PlayEnemyCard: InstanceID={instance.InstanceID} 카드를 _activeCards에서 찾지 못함 (활성 카드 수={_activeCards.Count})");
+            return;
+        }
+
+        BattleManager.Instance.SetProcessing(true); // ── 처리 락 ON ──
+
+        _activeCards.Remove(card);
+        List<CardInstance> drawn = BattleManager.Instance.ExecuteCard(instance.InstanceID, caster, target);
+        UpdateLayout();
+        PlayFallAnimation(card, drawn, releaseLock: true);
+    }
+
+    // ─────────────────────────────────────────────
+    //  공용 유틸
+    // ─────────────────────────────────────────────
+
     public void AddCard(CardInstance instance)
     {
         SpawnFromDrawPile(instance);
         UpdateLayout();
     }
 
-    /// <summary>
-    /// 카드 한 장을 풀에서 가져와 _drawPileAnchor 위치에 배치한 뒤 _activeCards에 추가합니다.
-    /// 호출 후 UpdateLayout()이 실행되면 anchor → 손패 슬롯으로 자연스럽게 보간됩니다.
-    /// </summary>
     private void SpawnFromDrawPile(CardInstance instance)
     {
         CardUI newCard = CardPool.Instance.GetCard(transform);
@@ -197,13 +383,56 @@ public class HandUI : MonoBehaviour
 
         if (_drawPileAnchor != null)
         {
-            // anchor의 World Position을 HandUI의 Local로 변환
             Vector3 localFrom = transform.InverseTransformPoint(_drawPileAnchor.position);
             newCard.transform.localPosition = localFrom;
             newCard.transform.localRotation = Quaternion.identity;
-            newCard.transform.localScale = Vector3.one * _drawSpawnScale;
+            newCard.transform.localScale    = Vector3.one * _drawSpawnScale;
         }
 
         _activeCards.Add(newCard);
+    }
+
+    // ─────────────────────────────────────────────
+    //  공통 낙하 연출
+    //  releaseLock = true  → 애니메이션 완료 시 처리 락 해제 + 턴 카운트 증가
+    //  releaseLock = false → 동시 낙하하는 보조 카드용 (선택 버리기 카드 등)
+    // ─────────────────────────────────────────────
+
+    private void PlayFallAnimation(CardUI card, List<CardInstance> drawn, bool releaseLock)
+    {
+        card.transform.DOKill();
+        card.SetSortingOrder(0);
+        card.SetInteractable(false);
+
+        float startY = card.transform.localPosition.y;
+        float startX = card.transform.localPosition.x;
+        float tilt   = UnityEngine.Random.Range(-25f, 25f);
+        float drift  = UnityEngine.Random.Range(-60f, 60f);
+        float total  = _discardBounceDuration + _discardDuration;
+
+        card.transform.DOLocalRotate(new Vector3(0, 0, tilt), total);
+        card.transform.DOLocalMoveX(startX + drift, total).SetEase(Ease.OutQuad);
+
+        Sequence seq = DOTween.Sequence();
+        seq.Append(card.transform
+            .DOLocalMoveY(startY + _discardBounceHeight, _discardBounceDuration)
+            .SetEase(Ease.OutQuad));
+        seq.Append(card.transform
+            .DOLocalMoveY(_discardFallDistance, _discardDuration)
+            .SetEase(Ease.InCubic));
+        seq.OnComplete(() =>
+        {
+            CardPool.Instance.ReturnCard(card);
+            foreach (CardInstance inst in drawn)
+            {
+                // SyncDiscardedCards 등에서 이미 스폰된 카드는 건너뜀
+                if (_activeCards.Exists(c => c.InstanceID == inst.InstanceID)) continue;
+                SpawnFromDrawPile(inst);
+            }
+            UpdateLayout();
+
+            if (releaseLock)
+                BattleManager.Instance.SetProcessing(false); // ── 처리 락 OFF, 턴 카운트 +1 ──
+        });
     }
 }
